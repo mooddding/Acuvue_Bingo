@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>빙고 게임(유저)</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="no-x">
+
+  <div class="hero">
+    <div class="hero-row">
+      <div class="hero-title">
+        <div class="kicker">POA2</div>
+        <h1>Acuvue Bin&quot;Go&quot;</h1>
+      </div>
+
+      <div class="hero-actions">
+        <div class="meta-rows">
+          <div class="meta-row">
+            <span class="pill">상태: <strong id="status">-</strong></span>
+            <span class="pill">업데이트: <strong id="updatedAt">-</strong></span>
+          </div>
+          <div class="meta-row">
+            <span class="pill">경과: <strong id="elapsed">00:00:00</strong></span>
+            <span class="pill">종료시각: <strong id="endedAt">-</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container wide">
+    <div class="user-layout-2">
+      <!-- LEFT: Rank + Events -->
+      <aside class="left-panel">
+        <div class="card compact">
+          <h2 style="margin:0 0 10px;">실시간 순위</h2>
+
+          <div class="event-row">
+            <div class="event-preview" id="eventPreview"></div>
+            <button class="btn accent tap" onclick="openEvents()">최근 이벤트 <span class="tap-dot" aria-hidden="true"></span></button>
+          </div>
+
+          <table class="tight" style="margin-top: 10px;">
+            <thead>
+              <tr>
+                <th style="width:112px;">순위</th>
+                <th style="width:70px;">조</th>
+                <th style="width:60px;">빙고</th>
+                <th>미션완료</th>
+              </tr>
+            </thead>
+            <tbody id="rankBody"></tbody>
+          </table>
+        </div>
+      </aside>
+
+      <!-- RIGHT: Boards -->
+      <main>
+        <div class="grid9 fit3" id="boards"></div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 이벤트 모달 -->
+  <div class="modal-backdrop" id="eventsModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title">최근 이벤트</div>
+        <button class="btn" onclick="closeEvents()">닫기</button>
+      </div>
+      <div class="modal-body" id="eventsList"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let LAST_STATE = null;
+
+    // ===== Timer (Stopwatch) =====
+    let __timerInterval = null;
+
+    function fmt(ms){
+      const s = Math.floor(ms/1000);
+      const hh = String(Math.floor(s/3600)).padStart(2,"0");
+      const mm = String(Math.floor((s%3600)/60)).padStart(2,"0");
+      const ss = String(s%60).padStart(2,"0");
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    function computeElapsed(timer){
+      if(!timer) return 0;
+      let ms = Number(timer.elapsedMs || 0);
+      if(timer.running && timer.startedAt){
+        const started = Date.parse(timer.startedAt);
+        if(!Number.isNaN(started)){
+          ms += Math.max(0, Date.now() - started);
+        }
+      }
+      return ms;
+    }
+
+    function startTicker(){
+      if(__timerInterval) return;
+      __timerInterval = setInterval(()=>{
+        if(!LAST_STATE?.game?.timer) return;
+        const t = LAST_STATE.game.timer;
+        const elapsedEl = document.getElementById("elapsed");
+        if(elapsedEl) elapsedEl.textContent = fmt(computeElapsed(t));
+      }, 1000);
+    }
+
+    function toast(msg){
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(()=> el.style.display="none", 2200);
+    }
+
+    function rankLabel(rank){
+      if(rank === 1) return { txt: "🥇 1등", cls: "rank-pill rank-gold" };
+      if(rank === 2) return { txt: "🥈 2등", cls: "rank-pill rank-silver" };
+      if(rank === 3) return { txt: "🥉 3등", cls: "rank-pill rank-bronze" };
+      return { txt: `${rank}위`, cls: "rank-pill" };
+    }
+
+    function itemName(id){
+      const map = {
+        SHUFFLE_ATTACK:"빙고판 셔플",
+        DISABLE_CELL:"상대 칸 무력화",
+        INSTANT_CLEAR:"원하는 칸 즉시 완료",
+        REVEAL_POS:"유리한 위치 보기"
+      };
+      return map[id] || id;
+    }
+
+    function render(state){
+      LAST_STATE = state;
+      document.getElementById("status").textContent = state.game.status || "-";
+      document.getElementById("updatedAt").textContent = new Date().toLocaleTimeString([], {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+      });
+
+      // 타이머 표시
+      const t = state.game.timer || {};
+      const elapsedEl = document.getElementById("elapsed");
+      if(elapsedEl) elapsedEl.textContent = fmt(computeElapsed(t));
+
+      const endedAtEl = document.getElementById("endedAt");
+      if(endedAtEl) endedAtEl.textContent = t.endedAt ? new Date(t.endedAt).toLocaleTimeString([], {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+      }) : "-";
+
+      startTicker();
+
+      // 이벤트 미리보기(최신 1개만 한 줄)
+      const preview = document.getElementById("eventPreview");
+      const evs = (state.events || []).slice().reverse();
+      const latest = evs[0];
+      preview.innerHTML = latest
+        ? `<div class="line">• ${escapeHtml(latest.text || "")}</div>`
+        : `<div class="line">• 이벤트 없음</div>`;
+
+      // 순위
+      const body = document.getElementById("rankBody");
+      body.innerHTML = "";
+      (state.ranking || []).forEach(r=>{
+        const tr = document.createElement("tr");
+        const label = rankLabel(r.rank);
+        tr.innerHTML = `
+          <td><span class="${label.cls}">${label.txt}</span></td>
+          <td>${r.team}조</td>
+          <td>${r.bingoCount}</td>
+          <td>${r.clearedCount}</td>
+        `;
+        body.appendChild(tr);
+      });
+
+      // 보드(유저: 미션명 숨김 / 상태만 표시)
+      const boards = document.getElementById("boards");
+      boards.innerHTML = "";
+
+      for(const [team, t] of Object.entries(state.teams || {})){
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="card-head">
+            <div class="title">
+              <h2 style="margin:0;">${team}조</h2>
+              <span class="small">빙고 ${t.bingoCount} / 완료 ${t.clearedCount}</span>
+            </div>
+          </div>
+          <div class="board" id="b_${team}" style="margin-top:10px;"></div>
+        `;
+        boards.appendChild(card);
+
+        const b = card.querySelector(`#b_${team}`);
+        for(let i=0;i<9;i++){
+          const c = (t.cleared || [])[i];
+          const d = (t.disabled || [])[i];
+          const awardId = (t.awards || [])[i];
+
+          const cell = document.createElement("div");
+          cell.className = "cell " + (c ? "cleared" : "") + (d ? " disabled" : "");
+
+          if(d){
+            cell.innerHTML = `<div>⛔</div><div class="sub">(무력화)</div>`;
+          } else if(c && awardId){
+            cell.innerHTML = `<div>🎁</div><div class="sub">(${escapeHtml(itemName(awardId))})</div>`;
+          } else if(c){
+            cell.innerHTML = `<div>❌</div>`;
+          } else {
+            cell.innerHTML = `<div></div>`;
+          }
+          b.appendChild(cell);
+        }
+      }
+    }
+
+    // 이벤트 모달
+    function openEvents(){
+      const modal = document.getElementById("eventsModal");
+      const list = document.getElementById("eventsList");
+      const evs = (LAST_STATE?.events || []).slice().reverse();
+      list.innerHTML = evs.length
+        ? evs.map(e => `<div class="event">• ${escapeHtml(e.text || "")}</div>`).join("")
+        : `<div class="event">이벤트가 없습니다.</div>`;
+      modal.style.display = "flex";
+    }
+    function closeEvents(){ document.getElementById("eventsModal").style.display = "none"; }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, (m)=>({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[m]));
+    }
+
+    socket.on("state", render);
+    socket.on("toast", (p)=>{ if(p?.text) toast(p.text); });
+
+    document.getElementById("eventsModal").addEventListener("click", (e)=>{
+      if(e.target.id === "eventsModal") closeEvents();
+    });
+  </script>
+</body>
+</html>

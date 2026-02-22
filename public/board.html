@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>빙고 게임 - 빙고판 보기</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    /* board.html only: make mission list + board more compact (about half size) */
+    .board-page .column-layout{ gap: 12px !important; }
+
+    .board-page #teamSelect{
+      font-size: 15px;
+      min-width: 180px;
+    }
+
+    /* 타이틀: 제목은 정확히 가운데, POA2는 오른쪽에 작게(제목 가운데에 영향 X) */
+    .board-page .hero-title{ width:100%; text-align:center; }
+    .board-page .hero-title .title-stack{ display:inline-block; position: relative; }
+
+    .board-page .title-inline{ margin:0; text-align:center; }
+
+    .board-page .kicker-plain{
+      position: absolute;
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: 14px;
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      color: rgba(15,23,42,0.55);
+      white-space: nowrap;
+    }
+
+    /* 상단 pill(상태/업데이트/경과/종료) 라운딩/여백을 카드 느낌으로 통일 */
+    .board-page .pill{
+      border-radius: 22px; /* 곡률(R) 통일 */
+      padding: 10px 14px;  /* 카드 느낌과 통일 */
+    }
+
+    /* 모바일에서 hero 좌우 패딩을 아래 카드와 맞춤 */
+    @media (max-width: 640px){
+      .board-page .hero{
+        padding: 10px 18px 10px; /* 전체 헤더를 위로 당김 */
+      }
+      .board-page .hero-row{ gap: 10px; align-items: flex-start; }
+      /* 조 선택 드롭다운 폰트 크게 */
+      .board-page #teamSelect{
+        font-size: 16px;
+        padding: 14px 16px;
+      }
+
+      .board-page #teamSelect option{
+        font-size: 16px;
+      }
+      .board-page .kicker-plain{ margin-left: 10px; font-size: 11px; }
+    }
+
+    .board-page .board{
+      gap: 6px;
+      aspect-ratio: 1 / 1;        /* 전체 보드를 정사각형으로 */
+      width: 100%;
+      max-width: 420px;           /* 너무 커지지 않도록 제한 */
+      margin: 0 auto;             /* 가운데 정렬 */
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    /* 미션 리스트 셀: 일반 카드처럼(정사각형 금지) */
+    .board-page #missionList .cell{
+      aspect-ratio: auto;
+      min-height: 0;
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 13px;
+      display: block;
+      line-height: 1.35;
+      text-align: left;
+    }
+
+    /* 빙고판 셀만 정사각형 */
+    .board-page #board .cell{
+      aspect-ratio: 1 / 1;
+      min-height: 0;
+      padding: 4px;
+      border-radius: 14px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .board-page .sub{ font-size: 10px; }
+    /* 제목 가운데 정렬 */
+    .board-page .section-title{
+      text-align: center;
+    }
+
+    /* 히든 미션 보라색(강조) 비활성화: board 페이지에서는 일반 미션처럼 보이게 */
+    .board-page .hidden-mission{ color: inherit !important; }
+    .board-page .cell.hidden-mission{
+      background: rgba(255,255,255,0.78) !important;
+      border-color: rgba(255,255,255,0.60) !important;
+      box-shadow: 0 10px 25px rgba(2,8,23,0.06) !important;
+    }
+
+    /* 미션 리스트는 스크롤 없이 전체 노출 */
+    .board-page #missionList{
+      max-height: none;
+      overflow: visible;
+      padding-right: 0;
+    }
+
+    /* 미션 리스트: 줄바꿈 시 번호 다음 글자에 맞춰 정렬(행걸이 들여쓰기) */
+    .board-page #missionList .mission-item{ cursor: pointer; }
+    .board-page #missionList .mission-line{
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .board-page #missionList .m-num{
+      flex: 0 0 28px;
+      width: 28px;
+      text-align: right;
+      opacity: 0.85;
+      line-height: 1.35;
+    }
+    .board-page #missionList .m-text{
+      flex: 1 1 auto;
+      min-width: 0;
+      line-height: 1.35;
+      word-break: keep-all;
+    }
+
+    /* 체크 토글 효과 */
+    .board-page #missionList .mission-item:active{
+      transform: translateY(1px);
+    }
+    .board-page #missionList .mission-item.checked{
+      background: rgba(37,99,235,0.10) !important;
+      border-color: rgba(37,99,235,0.25) !important;
+    }
+    .board-page #missionList .mission-item.checked .m-text{
+      text-decoration: line-through;
+      opacity: 0.75;
+    }
+  </style>
+</head>
+<body class="no-x board-page">
+
+  <div class="hero">
+    <div class="hero-row">
+      <div class="hero-title">
+        <div class="title-stack title-locked">
+          <h1 class="title-inline">Acuvue Bin&quot;Go&quot;</h1>
+          <span class="kicker-plain">POA2</span>
+        </div>
+      </div>
+
+      <div class="hero-actions">
+        <div class="meta-rows">
+          <div class="meta-row">
+            <span class="pill">상태: <strong id="status">-</strong></span>
+            <span class="pill">업데이트: <strong id="updatedAt">-</strong></span>
+          </div>
+          <div class="meta-row">
+            <span class="pill">경과: <strong id="elapsed">00:00:00</strong></span>
+            <span class="pill">종료시각: <strong id="endedAt">-</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- 1단계: 조 선택 -->
+    <div class="card" id="teamSelectCard">
+      <h2 class="section-title">조 선택</h2>
+      <div class="row" style="gap:12px; flex-wrap:wrap;">
+        <select id="teamSelect">
+          <option value="">조를 선택하세요</option>
+        </select>
+        <button class="btn primary" onclick="enterTeam()">확인</button>
+      </div>
+    </div>
+
+    <!-- 2단계: 선택된 조 화면 -->
+    <div id="teamView" style="display:none;">
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-head">
+          <div class="title">
+            <h2 id="teamTitle" style="margin:0;"></h2>
+            <span class="small" id="teamSummary"></span>
+          </div>
+          <button class="btn ghost" onclick="backToSelect()">조 다시 선택</button>
+        </div>
+      </div>
+
+      <div class="column-layout" style="display:flex; flex-direction:column; gap:16px;">
+
+        <!-- 미션 리스트 (위) -->
+        <div class="card">
+          <h2 class="section-title">미션 리스트</h2>
+          <div id="missionList" style="display:grid; gap:8px;"></div>
+        </div>
+
+        <!-- 빙고판 (아래) -->
+        <div class="card">
+          <h2 class="section-title">빙고판</h2>
+          <div class="board" id="board"></div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let LAST_STATE = null;
+    let SELECTED_TEAM = null;
+    let __timerInterval = null;
+
+    function storageKey(team){
+      return `bingo_checked_${team}`;
+    }
+
+    function loadChecked(team){
+      try{
+        const raw = localStorage.getItem(storageKey(team));
+        const arr = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(arr) ? arr : []);
+      }catch(e){
+        return new Set();
+      }
+    }
+
+    function saveChecked(team, setObj){
+      try{
+        localStorage.setItem(storageKey(team), JSON.stringify(Array.from(setObj)));
+      }catch(e){
+        // ignore
+      }
+    }
+
+    function fmt(ms){
+      const s = Math.floor(ms/1000);
+      const hh = String(Math.floor(s/3600)).padStart(2,"0");
+      const mm = String(Math.floor((s%3600)/60)).padStart(2,"0");
+      const ss = String(s%60).padStart(2,"0");
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    function computeElapsed(timer){
+      if(!timer) return 0;
+      let ms = Number(timer.elapsedMs || 0);
+      if(timer.running && timer.startedAt){
+        const started = Date.parse(timer.startedAt);
+        if(!Number.isNaN(started)){
+          ms += Math.max(0, Date.now() - started);
+        }
+      }
+      return ms;
+    }
+
+    function startTicker(){
+      if(__timerInterval) return;
+      __timerInterval = setInterval(()=>{
+        if(!LAST_STATE?.game?.timer) return;
+        const t = LAST_STATE.game.timer;
+        document.getElementById("elapsed").textContent = fmt(computeElapsed(t));
+      }, 1000);
+    }
+
+    function render(state){
+      LAST_STATE = state;
+
+      document.getElementById("status").textContent = state.game.status || "-";
+      document.getElementById("updatedAt").textContent = new Date().toLocaleTimeString([], {
+        hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
+      });
+
+      const t = state.game.timer || {};
+      document.getElementById("elapsed").textContent = fmt(computeElapsed(t));
+      document.getElementById("endedAt").textContent = t.endedAt
+        ? new Date(t.endedAt).toLocaleTimeString([], {
+            hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
+          })
+        : "-";
+
+      startTicker();
+
+      // 조 셀렉트 옵션 채우기
+      const select = document.getElementById("teamSelect");
+      if(select.options.length <= 1){
+        Object.keys(state.teams || {}).forEach(team=>{
+          const opt = document.createElement("option");
+          opt.value = team;
+          opt.textContent = team + "조";
+          select.appendChild(opt);
+        });
+      }
+
+      if(SELECTED_TEAM){
+        renderTeamView();
+      }
+    }
+
+    function enterTeam(){
+      const val = document.getElementById("teamSelect").value;
+      if(!val) return;
+      SELECTED_TEAM = val;
+      document.getElementById("teamSelectCard").style.display = "none";
+      document.getElementById("teamView").style.display = "block";
+      renderTeamView();
+    }
+
+    function backToSelect(){
+      SELECTED_TEAM = null;
+      document.getElementById("teamSelectCard").style.display = "block";
+      document.getElementById("teamView").style.display = "none";
+    }
+
+    function renderTeamView(){
+      const teamData = LAST_STATE?.teams?.[SELECTED_TEAM];
+      if(!teamData) return;
+
+      document.getElementById("teamTitle").textContent = SELECTED_TEAM + "조";
+      document.getElementById("teamSummary").textContent =
+        `빙고 ${teamData.bingoCount} / 완료 ${teamData.clearedCount}`;
+
+      // 미션 리스트(고정 문구)
+      const missions = [
+        "전주 이씨와 함께 사진찍기",
+        "OC 정서우 매니저한테 전화해서 아큐브 파이팅 외치기 (2빙고 일 때 오픈)",
+        "여행온 외국인 찾아 사진찍기",
+        "벽화마을에 있는 존존컬러(빨강)와 아큐브 컬러(파랑)이 같이 있는 벽화 찍기",
+        "오목대 앞에서 단체 점프샷",
+        "단체 사진 찍기",
+        "어진 박물관가서 태조이성계어진과 사진 찍기",
+        "OC한테 가서 코르티스 멤버 10초안에 말하기",
+        "히든"
+      ];
+
+      const list = document.getElementById("missionList");
+      list.innerHTML = "";
+
+      const checked = loadChecked(SELECTED_TEAM);
+
+      missions.forEach((text, idx)=>{
+        const i = idx + 1;
+        const div = document.createElement("div");
+        div.className = "cell mission-item" + (i === 9 ? " hidden-mission" : "");
+
+        // 체크 상태 반영
+        if(checked.has(i)) div.classList.add("checked");
+
+        div.innerHTML = `
+          <div class="mission-line">
+            <span class="m-num">${i})</span>
+            <span class="m-text">${escapeHtml(text)}</span>
+          </div>
+        `;
+
+        // 클릭 시 토글(다시 누르면 원복)
+        div.addEventListener("click", ()=>{
+          if(div.classList.contains("checked")){
+            div.classList.remove("checked");
+            checked.delete(i);
+          } else {
+            div.classList.add("checked");
+            checked.add(i);
+          }
+          saveChecked(SELECTED_TEAM, checked);
+        });
+
+        list.appendChild(div);
+      });
+
+      // 빙고판
+      const board = document.getElementById("board");
+      board.innerHTML = "";
+      for(let i=0;i<9;i++){
+        const cleared = (teamData.cleared || [])[i];
+        const disabled = (teamData.disabled || [])[i];
+        const award = (teamData.awards || [])[i];
+
+        const cell = document.createElement("div");
+        cell.className = "cell " + (cleared?"cleared":"") + (disabled?" disabled":"");
+
+        if(disabled){
+          cell.innerHTML = `<div>⛔</div><div class="sub">(무력화)</div>`;
+        } else if(cleared && award){
+          cell.innerHTML = `<div>🎁</div>`;
+        } else if(cleared){
+          cell.innerHTML = `<div>❌</div>`;
+        }
+        board.appendChild(cell);
+      }
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>\"']/g, (m)=>({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"
+      }[m]));
+    }
+
+    socket.on("state", render);
+  </script>
+</body>
+</html>

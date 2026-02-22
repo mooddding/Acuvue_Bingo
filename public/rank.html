@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>빙고 게임 - 실시간 순위</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="no-x">
+
+  <div class="hero">
+    <div class="hero-row">
+      <div class="hero-title">
+        <div class="title-stack title-locked">
+          <h1 class="title-inline">Acuvue Bin&quot;Go&quot;</h1>
+          <span class="kicker-plain">POA2</span>
+        </div>
+      </div>
+
+      <div class="hero-actions">
+        <div class="meta-rows">
+          <div class="meta-row">
+            <span class="pill">상태: <strong id="status">-</strong></span>
+            <span class="pill">업데이트: <strong id="updatedAt">-</strong></span>
+          </div>
+          <div class="meta-row">
+            <span class="pill">경과: <strong id="elapsed">00:00:00</strong></span>
+            <span class="pill">종료시각: <strong id="endedAt">-</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container wide">
+    <div class="card">
+      <h2 class="section-title">실시간 순위</h2>
+
+      <div class="event-row">
+        <div class="event-preview" id="eventPreview"></div>
+        <button class="btn accent tap" onclick="openEvents()">
+          최근 이벤트 <span class="tap-dot" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <table class="tight rank-table">
+        <thead>
+          <tr>
+            <th style="width:120px;">순위</th>
+            <th style="width:80px;">조</th>
+            <th style="width:80px;">빙고</th>
+            <th>미션완료</th>
+          </tr>
+        </thead>
+        <tbody id="rankBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 이벤트 모달 -->
+  <div class="modal-backdrop" id="eventsModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title">최근 이벤트</div>
+        <button class="btn" onclick="closeEvents()">닫기</button>
+      </div>
+      <div class="modal-body" id="eventsList"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let LAST_STATE = null;
+    let __timerInterval = null;
+
+    function fmt(ms){
+      const s = Math.floor(ms/1000);
+      const hh = String(Math.floor(s/3600)).padStart(2,"0");
+      const mm = String(Math.floor((s%3600)/60)).padStart(2,"0");
+      const ss = String(s%60).padStart(2,"0");
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    function computeElapsed(timer){
+      if(!timer) return 0;
+      let ms = Number(timer.elapsedMs || 0);
+      if(timer.running && timer.startedAt){
+        const started = Date.parse(timer.startedAt);
+        if(!Number.isNaN(started)){
+          ms += Math.max(0, Date.now() - started);
+        }
+      }
+      return ms;
+    }
+
+    function startTicker(){
+      if(__timerInterval) return;
+      __timerInterval = setInterval(()=>{
+        if(!LAST_STATE?.game?.timer) return;
+        const t = LAST_STATE.game.timer;
+        document.getElementById("elapsed").textContent = fmt(computeElapsed(t));
+      }, 1000);
+    }
+
+    function rankLabel(rank){
+      if(rank === 1) return { txt: "🥇 1등", cls: "rank-pill rank-gold" };
+      if(rank === 2) return { txt: "🥈 2등", cls: "rank-pill rank-silver" };
+      if(rank === 3) return { txt: "🥉 3등", cls: "rank-pill rank-bronze" };
+      return { txt: `${rank}위`, cls: "rank-pill" };
+    }
+
+    function render(state){
+      LAST_STATE = state;
+
+      document.getElementById("status").textContent = state.game.status || "-";
+      document.getElementById("updatedAt").textContent = new Date().toLocaleTimeString([], {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+      });
+
+      const t = state.game.timer || {};
+      document.getElementById("elapsed").textContent = fmt(computeElapsed(t));
+      document.getElementById("endedAt").textContent = t.endedAt
+        ? new Date(t.endedAt).toLocaleTimeString([], {
+            hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+          })
+        : "-";
+
+      startTicker();
+
+      // 최신 이벤트 한 줄
+      const preview = document.getElementById("eventPreview");
+      const evs = (state.events || []).slice().reverse();
+      const latest = evs[0];
+      preview.innerHTML = latest
+        ? `<div class="line">• ${escapeHtml(latest.text || "")}</div>`
+        : `<div class="line">• 이벤트 없음</div>`;
+
+      // 순위 테이블
+      const body = document.getElementById("rankBody");
+      body.innerHTML = "";
+      (state.ranking || []).forEach(r=>{
+        const tr = document.createElement("tr");
+        const label = rankLabel(r.rank);
+        tr.innerHTML = `
+          <td><span class="${label.cls}">${label.txt}</span></td>
+          <td>${r.team}조</td>
+          <td>${r.bingoCount}</td>
+          <td>${r.clearedCount}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    function openEvents(){
+      const modal = document.getElementById("eventsModal");
+      const list = document.getElementById("eventsList");
+      const evs = (LAST_STATE?.events || []).slice().reverse();
+      list.innerHTML = evs.length
+        ? evs.map(e => `<div class="event">• ${escapeHtml(e.text || "")}</div>`).join("")
+        : `<div class="event">이벤트가 없습니다.</div>`;
+      modal.style.display = "flex";
+    }
+
+    function closeEvents(){
+      document.getElementById("eventsModal").style.display = "none";
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>\"']/g, (m)=>({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"
+      }[m]));
+    }
+
+    socket.on("state", render);
+
+    document.getElementById("eventsModal").addEventListener("click", (e)=>{
+      if(e.target.id === "eventsModal") closeEvents();
+    });
+  </script>
+</body>
+</html>

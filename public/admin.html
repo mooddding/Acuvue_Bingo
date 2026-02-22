@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>빙고 게임(관리자)</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="no-x">
+
+  <div class="hero">
+    <div class="hero-row">
+      <div class="hero-title">
+        <div class="kicker">운영자 화면</div>
+        <h1>Acuvue Bin"Go"</h1>
+      </div>
+      <div class="hero-actions">
+        <span class="pill">상태: <strong id="status">-</strong></span>
+        <span class="pill">경과: <strong id="elapsed">00:00:00</strong></span>
+        <span class="pill">종료시각: <strong id="endedAt">-</strong></span>
+        <button class="btn" onclick="setStatus('WAITING')">대기</button>
+        <button class="btn primary" onclick="setStatus('RUNNING')">시작</button>
+        <button class="btn" onclick="setStatus('ENDED')">종료</button>
+        <button class="btn" onclick="undo()">되돌리기</button>
+        <button class="btn" onclick="resetGame()">리셋</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container wide">
+    <div class="admin-layout">
+      <!-- LEFT -->
+      <aside class="left-panel">
+        <div class="card compact">
+          <div class="row between" style="align-items:center;">
+            <h2 style="margin:0;">실시간 순위</h2>
+            <button class="btn ghost" onclick="openEvents()">최근 이벤트</button>
+          </div>
+
+          <div class="event-preview" id="eventPreview"></div>
+
+          <table class="tight">
+            <thead>
+              <tr>
+                <th style="width:112px;">순위</th>
+                <th style="width:70px;">조</th>
+                <th style="width:60px;">빙고</th>
+                <th>미션완료</th>
+              </tr>
+            </thead>
+            <tbody id="rankBody"></tbody>
+          </table>
+        </div>
+      </aside>
+
+      <!-- RIGHT -->
+      <main>
+        <div class="admin-grid9 fit3" id="boards"></div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 이벤트 모달 -->
+  <div class="modal-backdrop" id="eventsModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title">최근 이벤트</div>
+        <button class="btn" onclick="closeEvents()">닫기</button>
+      </div>
+      <div class="modal-body" id="eventsList"></div>
+    </div>
+  </div>
+
+  <!-- 아이템 사용 모달 -->
+  <div class="modal-backdrop" id="itemModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title" id="itemModalTitle">아이템 사용</div>
+        <button class="btn" onclick="closeItem()">닫기</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row" style="gap:10px; flex-wrap:wrap;">
+          <span class="pill">사용 조: <strong id="imFrom">-</strong></span>
+          <span class="pill">아이템: <strong id="imItem">-</strong></span>
+        </div>
+
+        <div class="row" style="gap:10px; flex-wrap:wrap;">
+          <label>대상 조
+            <select id="imTargetTeam"></select>
+          </label>
+
+          <label id="imPosWrap" style="display:none;">좌표
+            <select id="imTargetPos">
+              <option value="">선택</option>
+              <option value="0">1</option><option value="1">2</option><option value="2">3</option>
+              <option value="3">4</option><option value="4">5</option><option value="5">6</option>
+              <option value="6">7</option><option value="7">8</option><option value="8">9</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="small" id="imHint"></div>
+
+        <div class="modal-actions">
+          <button class="btn" onclick="closeItem()">취소</button>
+          <button class="btn primary" onclick="confirmUseItem()">사용하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    // 아이템 정의(프론트 표시/입력요건)
+    const ITEM_UI = {
+      SHUFFLE_ATTACK: { name:"빙고판 셔플", needPos:false, hint:"대상 조의 빙고판이 섞입니다." },
+      DISABLE_CELL:   { name:"상대 칸 무력화", needPos:true,  hint:"대상 조의 선택한 칸이 무력화됩니다." },
+      INSTANT_CLEAR:  { name:"원하는 칸 즉시 완료", needPos:true, hint:"대상 조의 선택한 칸이 즉시 완료 처리됩니다." },
+      REVEAL_POS:     { name:"유리한 위치 보기", needPos:false, hint:"대상 조 기준 추천 칸 번호가 이벤트로 표시됩니다." },
+    };
+
+    let LAST_ADMIN_STATE = null;
+
+    // ===== Timer (Stopwatch) =====
+    let __timerInterval = null;
+
+    function fmt(ms){
+      const s = Math.floor(ms/1000);
+      const hh = String(Math.floor(s/3600)).padStart(2,"0");
+      const mm = String(Math.floor((s%3600)/60)).padStart(2,"0");
+      const ss = String(s%60).padStart(2,"0");
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    function computeElapsed(timer){
+      if(!timer) return 0;
+      let ms = Number(timer.elapsedMs || 0);
+      if(timer.running && timer.startedAt){
+        const started = Date.parse(timer.startedAt);
+        if(!Number.isNaN(started)){
+          ms += Math.max(0, Date.now() - started);
+        }
+      }
+      return ms;
+    }
+
+    function startTicker(){
+      if(__timerInterval) return;
+      __timerInterval = setInterval(()=>{
+        if(!LAST_ADMIN_STATE?.game?.timer) return;
+        const t = LAST_ADMIN_STATE.game.timer;
+        const elapsedEl = document.getElementById("elapsed");
+        if(elapsedEl) elapsedEl.textContent = fmt(computeElapsed(t));
+      }, 1000);
+    }
+    let PENDING_ITEM = null; // {fromTeam, itemId}
+
+    function toast(msg){
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(()=> el.style.display="none", 2400);
+    }
+
+    function rankLabel(rank){
+      if(rank === 1) return { txt: "🥇 1등", cls: "rank-pill rank-gold" };
+      if(rank === 2) return { txt: "🥈 2등", cls: "rank-pill rank-silver" };
+      if(rank === 3) return { txt: "🥉 3등", cls: "rank-pill rank-bronze" };
+      return { txt: `${rank}위`, cls: "rank-pill" };
+    }
+
+    function itemName(id){ return (ITEM_UI[id] && ITEM_UI[id].name) ? ITEM_UI[id].name : id; }
+
+    function render(state){
+      LAST_ADMIN_STATE = state;
+      document.getElementById("status").textContent = state.game.status || "-";
+
+      // 타이머 표시
+      const t = state.game.timer || {};
+      const elapsedEl = document.getElementById("elapsed");
+      if(elapsedEl) elapsedEl.textContent = fmt(computeElapsed(t));
+
+      const endedAtEl = document.getElementById("endedAt");
+      if(endedAtEl) endedAtEl.textContent = t.endedAt ? new Date(t.endedAt).toLocaleTimeString() : "-";
+
+      startTicker();
+
+      // 이벤트 미리보기(최근 3개)
+      const preview = document.getElementById("eventPreview");
+      const evs = (state.events || []).slice().reverse();
+      const top3 = evs.slice(0,3);
+      preview.innerHTML = top3.length
+        ? top3.map(e => `<div class="line">• ${escapeHtml(e.text || "")}</div>`).join("")
+        : `<div class="line">• 이벤트 없음</div>`;
+
+      // 순위
+      const body = document.getElementById("rankBody");
+      body.innerHTML = "";
+      (state.ranking || []).forEach(r=>{
+        const tr = document.createElement("tr");
+        const label = rankLabel(r.rank);
+        tr.innerHTML = `
+          <td><span class="${label.cls}">${label.txt}</span></td>
+          <td>${r.team}조</td>
+          <td>${r.bingoCount}</td>
+          <td>${r.clearedCount}</td>
+        `;
+        body.appendChild(tr);
+      });
+
+      // 보드
+      const boards = document.getElementById("boards");
+      boards.innerHTML = "";
+
+      for(const [team, t] of Object.entries(state.admin.teams || {})){
+        const inv = (t.items || []);
+        const invButtons = inv.map(itemId =>
+          `<button class="btn item" onclick="openItem(${team}, '${itemId}')">아이템 사용(${escapeHtml(itemName(itemId))})</button>`
+        ).join("");
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="card-head">
+            <div class="title">
+              <h2 style="margin:0;">${team}조</h2>
+              <span class="small">빙고 ${state.teams[team].bingoCount} / 완료 ${state.teams[team].clearedCount}</span>
+            </div>
+            <div class="actions">${invButtons || `<span class="small">아이템 없음</span>`}</div>
+          </div>
+          <div class="board" id="b_${team}" style="margin-top:10px;"></div>
+          <div class="small" style="margin-top:8px;">* 클릭: 완료/취소 (무력화 칸은 클릭 불가)</div>
+        `;
+        boards.appendChild(card);
+
+        const b = card.querySelector(`#b_${team}`);
+        (t.board || []).forEach((mission, idx)=>{
+          const c = (t.cleared || [])[idx];
+          const d = (t.disabled || [])[idx];
+          const awardId = (t.awards || [])[idx];
+          const isHidden = /^H\\d+$/.test(mission);
+
+          const cell = document.createElement("div");
+          cell.className =
+            "cell clickable " +
+            (c ? "cleared " : "") +
+            (d ? "disabled " : "") +
+            (isHidden ? "hidden-mission " : "");
+
+          if(d){
+            cell.innerHTML = `<div>⛔</div><div class="sub">(무력화)</div>`;
+          } else if(c && awardId){
+            cell.innerHTML = `<div>🎁</div><div class="sub">(${escapeHtml(itemName(awardId))})</div>`;
+          } else if(c){
+            cell.innerHTML = `<div>${escapeHtml(mission)} ✅</div>`;
+          } else {
+            cell.innerHTML = `<div>${escapeHtml(mission)}</div>`;
+          }
+
+          cell.onclick = () => toggleClear(team, idx);
+          b.appendChild(cell);
+        });
+      }
+    }
+
+    // 이벤트 모달
+    function openEvents(){
+      const modal = document.getElementById("eventsModal");
+      const list = document.getElementById("eventsList");
+      const evs = (LAST_ADMIN_STATE?.events || []).slice().reverse();
+      list.innerHTML = evs.length
+        ? evs.map(e => `<div class="event">• ${escapeHtml(e.text || "")}</div>`).join("")
+        : `<div class="event">이벤트가 없습니다.</div>`;
+      modal.style.display = "flex";
+    }
+    function closeEvents(){ document.getElementById("eventsModal").style.display = "none"; }
+
+    // 아이템 모달(조 카드 옆 버튼에서 열기)
+    function openItem(fromTeam, itemId){
+      PENDING_ITEM = { fromTeam, itemId };
+
+      document.getElementById("imFrom").textContent = `${fromTeam}조`;
+      document.getElementById("imItem").textContent = itemName(itemId);
+      document.getElementById("imHint").textContent = ITEM_UI[itemId]?.hint || "";
+
+      const tgtSel = document.getElementById("imTargetTeam");
+      tgtSel.innerHTML = "";
+      for(let i=1;i<=9;i++){
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = `${i}조`;
+        tgtSel.appendChild(opt);
+      }
+      // 기본 대상: 자기팀이 아닌 첫 번째
+      tgtSel.value = String(fromTeam === 1 ? 2 : 1);
+
+      const needPos = !!ITEM_UI[itemId]?.needPos;
+      document.getElementById("imPosWrap").style.display = needPos ? "inline-block" : "none";
+      document.getElementById("imTargetPos").value = "";
+
+      document.getElementById("itemModalTitle").textContent = `아이템 사용 - ${itemName(itemId)}`;
+      document.getElementById("itemModal").style.display = "flex";
+    }
+    function closeItem(){ document.getElementById("itemModal").style.display = "none"; PENDING_ITEM = null; }
+
+    async function confirmUseItem(){
+      if(!PENDING_ITEM) return;
+
+      const targetTeam = Number(document.getElementById("imTargetTeam").value);
+      const needPos = !!ITEM_UI[PENDING_ITEM.itemId]?.needPos;
+      const posVal = document.getElementById("imTargetPos").value;
+      const targetPos = needPos ? (posVal === "" ? null : Number(posVal)) : null;
+
+      if(needPos && targetPos === null){
+        toast("좌표를 선택해 주세요.");
+        return;
+      }
+
+      const res = await fetch("/api/admin/use-item", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          fromTeam: Number(PENDING_ITEM.fromTeam),
+          itemId: PENDING_ITEM.itemId,
+          targetTeam,
+          targetPos
+        })
+      });
+      const j = await res.json();
+      toast(j?.message || "처리 완료");
+      if(j?.ok) closeItem();
+    }
+
+    // 서버 호출
+    async function toggleClear(team, pos){
+      const res = await fetch("/api/admin/toggle-clear", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ team:Number(team), pos:Number(pos) })
+      });
+      const j = await res.json();
+      if(j?.ok === false) toast(j.message || "반영 실패");
+    }
+
+    async function setStatus(status){
+      const res = await fetch("/api/admin/set-status", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ status })
+      });
+      const j = await res.json();
+      toast(j?.message || "처리 완료");
+    }
+
+    async function undo(){
+      const res = await fetch("/api/admin/undo", { method:"POST" });
+      const j = await res.json();
+      toast(j?.message || "되돌림");
+    }
+
+    async function resetGame(){
+      const res = await fetch("/api/admin/reset", { method:"POST" });
+      const j = await res.json();
+      toast(j?.message || "리셋 완료");
+    }
+
+    // 보안: HTML escape
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, (m)=>({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[m]));
+    }
+
+    socket.on("adminState", render);
+    socket.on("toast", (p)=>{ if(p?.text) toast(p.text); });
+
+    // 모달 배경 클릭 시 닫기
+    document.getElementById("eventsModal").addEventListener("click", (e)=>{
+      if(e.target.id === "eventsModal") closeEvents();
+    });
+    document.getElementById("itemModal").addEventListener("click", (e)=>{
+      if(e.target.id === "itemModal") closeItem();
+    });
+  </script>
+</body>
+</html>
