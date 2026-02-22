@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Acuvue Bin"Go"</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    /* Landing only */
+    html, body { height: 100%; }
+    body{
+      margin: 0;
+      min-height: 100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow-x: hidden;
+    }
+
+    .landing{
+      width: 100%;
+      min-height: 100vh;
+      position: relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 22px 16px;
+      background:
+        linear-gradient(180deg, rgba(2,8,23,0.55), rgba(2,8,23,0.30)),
+        url('/banner.jpeg') center/cover no-repeat;
+    }
+
+    .landing::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: radial-gradient(900px 420px at 50% 25%, rgba(255,255,255,0.12), rgba(255,255,255,0.00));
+      pointer-events:none;
+    }
+
+    .landing-card{
+      position: relative;
+      z-index: 1;
+      width: min(520px, calc(100vw - 32px));
+      border-radius: 26px;
+      padding: 26px 22px 22px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.22);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.38);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      text-align: center;
+      opacity: 0;
+      transform: translateY(14px);
+      animation: cardIn .55s ease-out .25s forwards;
+    }
+
+    .landing-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.28);
+      background: rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.92);
+      font-weight: 900;
+      letter-spacing: .3px;
+      font-size: 12px;
+    }
+
+    .landing-title{
+      margin: 14px 0 6px;
+      color: rgba(255,255,255,0.98);
+      font-size: 42px;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      font-weight: 1000;
+      text-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+
+    .landing-sub{
+      margin: 0 0 18px;
+      color: rgba(255,255,255,0.88);
+      font-weight: 900;
+      font-size: 13px;
+      opacity: .95;
+    }
+
+    .landing-actions{
+      display:grid;
+      gap: 10px;
+      margin-top: 16px;
+      opacity: 0;
+      animation: fadeIn .45s ease-out .55s forwards;
+    }
+
+    .landing-btn{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      padding: 16px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.26);
+      background: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.98);
+      text-decoration:none;
+      font-weight: 1100;
+      letter-spacing: -0.01em;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.22);
+      transform: translateY(0);
+      transition: transform .14s ease, background .14s ease, border-color .14s ease, box-shadow .14s ease;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: btnIn .45s cubic-bezier(.2,.8,.2,1) .65s forwards;
+    }
+
+    .landing-btn .label{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      font-size: 16px;
+    }
+
+    .landing-btn .icon{
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      display:grid;
+      place-items:center;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.22);
+      font-size: 18px;
+    }
+
+    .landing-btn .arrow{
+      opacity: .92;
+      font-weight: 1000;
+      font-size: 18px;
+    }
+
+    .landing-btn:hover{
+      background: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.34);
+      box-shadow: 0 22px 55px rgba(0,0,0,0.28);
+      transform: translateY(-1px);
+    }
+
+    .landing-btn:active{
+      transform: translateY(1px);
+    }
+
+    /* Entrance animations (background first, then card, then buttons) */
+    @keyframes cardIn{
+      to{ opacity: 1; transform: translateY(0); }
+    }
+    @keyframes btnIn{
+      to{ opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn{
+      to{ opacity: 1; }
+    }
+
+    /* Stagger buttons */
+    .landing-btn:nth-child(1){ animation-delay: .68s; }
+    .landing-btn:nth-child(2){ animation-delay: .78s; }
+
+    /* Respect reduced-motion */
+    @media (prefers-reduced-motion: reduce){
+      .landing-card, .landing-actions, .landing-btn{
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
+
+    .landing-foot{
+      margin-top: 14px;
+      font-size: 12px;
+      font-weight: 900;
+      color: rgba(255,255,255,0.74);
+      white-space: nowrap;
+      overflow: visible;
+      text-overflow: unset;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 100%;
+    }
+
+    @media (max-width: 640px){
+      .landing-title{ font-size: 34px; }
+      .landing-card{ border-radius: 22px; padding: 22px 18px 18px; }
+      .landing-btn{ border-radius: 16px; padding: 14px 14px; }
+      .landing-btn .label{ font-size: 15px; }
+      .landing-foot{ font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="landing">
+    <section class="landing-card" aria-label="Acuvue Bingo entry">
+      <div class="landing-kicker">ACUVUE · POA2</div>
+      <h1 class="landing-title">Acuvue Bin&quot;Go&quot;</h1>
+      <p class="landing-sub">원하는 화면을 선택해 입장해 주세요</p>
+
+      <div class="landing-actions">
+        <a class="landing-btn" href="/rank" aria-label="실시간 순위 확인">
+          <span class="label"><span class="icon">🏆</span>실시간 순위 확인</span>
+          <span class="arrow">›</span>
+        </a>
+        <a class="landing-btn" href="/board" aria-label="빙고판 보기">
+          <span class="label"><span class="icon">🧩</span>빙고판 보기</span>
+          <span class="arrow">›</span>
+        </a>
+      </div>
+
+      <div class="landing-foot">네트워크 상황에 따라 실시간 반영에 약간의 지연이 있을 수 있습니다.</div>
+    </section>
+  </main>
+</body>
+</html>
