@@ -186,8 +186,9 @@ let STATE = newGameState();
 
 // ===== routes =====
 // 기본 접속은 순위 페이지로
-app.get("/", (req, res) => res.redirect("/rank"));
-
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "landing.html"));
+});
 // 유저 화면(기존)
 app.get("/user", (req, res) => res.sendFile(path.join(__dirname, "public", "user.html")));
 
