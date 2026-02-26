@@ -9,6 +9,24 @@
     /* board.html only: make mission list + board more compact (about half size) */
     .board-page .column-layout{ gap: 12px !important; }
 
+    /* Top-left Home button */
+    .board-page .home-link{
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 10001;
+      text-decoration: none;
+    }
+    .board-page .home-link.btn{
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-weight: 1000;
+    }
+    @media (max-width: 640px){
+      .board-page .home-link{ top: 10px; left: 10px; }
+      .board-page .home-link.btn{ padding: 9px 10px; border-radius: 12px; }
+    }
+
     .board-page #teamSelect{
       font-size: 15px;
       min-width: 180px;
@@ -67,18 +85,6 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
     }
-    /* 미션 리스트 셀: 일반 카드처럼(정사각형 금지) */
-    .board-page #missionList .cell{
-      aspect-ratio: auto;
-      min-height: 0;
-      padding: 10px 12px;
-      border-radius: 14px;
-      font-size: 13px;
-      display: block;
-      line-height: 1.35;
-      text-align: left;
-    }
-
     /* 빙고판 셀만 정사각형 */
     .board-page #board .cell{
       aspect-ratio: 1 / 1;
@@ -112,42 +118,126 @@
       padding-right: 0;
     }
 
-    /* 미션 리스트: 줄바꿈 시 번호 다음 글자에 맞춰 정렬(행걸이 들여쓰기) */
-    .board-page #missionList .mission-item{ cursor: pointer; }
-    .board-page #missionList .mission-line{
-      display: flex;
-      gap: 8px;
-      align-items: flex-start;
+    /* Mission buttons (open modal) */
+    .board-page #missionList{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
     }
-    .board-page #missionList .m-num{
-      flex: 0 0 28px;
-      width: 28px;
-      text-align: right;
-      opacity: 0.85;
-      line-height: 1.35;
+
+    .board-page .mission-btn{
+      width: 100%;
+      border-radius: 14px;
+      padding: 12px 10px;
+      font-size: 14px;
+      font-weight: 1000;
+      letter-spacing: -0.01em;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid rgba(255,255,255,0.60);
+      background: rgba(255,255,255,0.78);
+      box-shadow: 0 10px 25px rgba(2,8,23,0.06);
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
     }
-    .board-page #missionList .m-text{
-      flex: 1 1 auto;
-      min-width: 0;
-      line-height: 1.35;
+
+    .board-page .mission-btn:hover{
+      box-shadow: 0 14px 32px rgba(2,8,23,0.10);
+      border-color: rgba(37,99,235,0.35);
+      transform: translateY(-1px);
+    }
+
+    .board-page .mission-btn:active{ transform: translateY(1px); }
+
+    .board-page .mission-btn.checked{
+      border-color: rgba(37,99,235,0.35);
+      background: rgba(37,99,235,0.10);
+    }
+
+    .board-page .mission-btn .num{ opacity: 0.85; }
+    .board-page .mission-btn .done{ margin-left: 6px; font-weight: 1100; }
+
+    /* Modal */
+    .board-page .modal{
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 9999;
+      background: rgba(2,8,23,0.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .board-page .modal.open{ display: flex; }
+
+    .board-page .modal-card{
+      width: min(560px, calc(100vw - 36px));
+      border-radius: 18px;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid rgba(255,255,255,0.70);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.35);
+      overflow: hidden;
+    }
+
+    .board-page .modal-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 14px 16px;
+      background: rgba(2,8,23,0.04);
+      border-bottom: 1px solid rgba(2,8,23,0.08);
+    }
+
+    .board-page .modal-title{
+      margin: 0;
+      font-size: 16px;
+      font-weight: 1100;
+      letter-spacing: -0.01em;
+      color: rgba(15,23,42,0.92);
+    }
+
+    .board-page .modal-close{
+      border: 0;
+      background: rgba(2,8,23,0.06);
+      border: 1px solid rgba(2,8,23,0.12);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-weight: 1000;
+      cursor: pointer;
+    }
+
+    .board-page .modal-body{ padding: 14px 16px 16px; }
+
+    .board-page .modal-text{
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.5;
+      color: rgba(15,23,42,0.92);
       word-break: keep-all;
     }
 
-    /* 체크 토글 효과 */
-    .board-page #missionList .mission-item:active{
-      transform: translateY(1px);
+    .board-page .modal-actions{
+      display:flex;
+      gap: 10px;
+      justify-content: flex-end;
+      padding: 12px 16px 16px;
+      border-top: 1px solid rgba(2,8,23,0.08);
+      background: rgba(255,255,255,0.90);
     }
-    .board-page #missionList .mission-item.checked{
-      background: rgba(37,99,235,0.10) !important;
-      border-color: rgba(37,99,235,0.25) !important;
-    }
-    .board-page #missionList .mission-item.checked .m-text{
-      text-decoration: line-through;
-      opacity: 0.75;
+
+    @media (max-width: 640px){
+      .board-page #missionList{ grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .board-page .mission-btn{ font-size: 13px; padding: 12px 8px; }
+      .board-page .modal-text{ font-size: 14px; }
     }
   </style>
 </head>
 <body class="no-x board-page">
+
+  <a class="btn ghost home-link" href="/" aria-label="홈으로 돌아가기">← 홈</a>
 
   <div class="hero">
     <div class="hero-row">
@@ -204,7 +294,7 @@
         <!-- 미션 리스트 (위) -->
         <div class="card">
           <h2 class="section-title">미션 리스트</h2>
-          <div id="missionList" style="display:grid; gap:8px;"></div>
+          <div id="missionList"></div>
         </div>
 
         <!-- 빙고판 (아래) -->
@@ -215,6 +305,23 @@
 
       </div>
 
+    </div>
+  </div>
+
+  <!-- Mission modal -->
+  <div class="modal" id="missionModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="missionModalTitle">
+      <div class="modal-head">
+        <h3 class="modal-title" id="missionModalTitle">미션</h3>
+        <button class="modal-close" type="button" onclick="closeMissionModal()">닫기</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-text" id="missionModalText">-</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" type="button" id="missionToggleBtn" onclick="toggleMissionChecked()">진행 체크</button>
+        <button class="btn primary" type="button" onclick="closeMissionModal()">확인</button>
+      </div>
     </div>
   </div>
 
@@ -353,32 +460,12 @@
 
       missions.forEach((text, idx)=>{
         const i = idx + 1;
-        const div = document.createElement("div");
-        div.className = "cell mission-item" + (i === 9 ? " hidden-mission" : "");
-
-        // 체크 상태 반영
-        if(checked.has(i)) div.classList.add("checked");
-
-        div.innerHTML = `
-          <div class="mission-line">
-            <span class="m-num">${i})</span>
-            <span class="m-text">${escapeHtml(text)}</span>
-          </div>
-        `;
-
-        // 클릭 시 토글(다시 누르면 원복)
-        div.addEventListener("click", ()=>{
-          if(div.classList.contains("checked")){
-            div.classList.remove("checked");
-            checked.delete(i);
-          } else {
-            div.classList.add("checked");
-            checked.add(i);
-          }
-          saveChecked(SELECTED_TEAM, checked);
-        });
-
-        list.appendChild(div);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "mission-btn" + (checked.has(i) ? " checked" : "");
+        btn.innerHTML = `<span class="num">미션 ${i}</span>${checked.has(i) ? `<span class="done">✓</span>` : ``}`;
+        btn.addEventListener("click", ()=> openMissionModal(i, text));
+        list.appendChild(btn);
       });
 
       // 빙고판
@@ -407,6 +494,62 @@
       return String(s).replace(/[&<>\"']/g, (m)=>({
         "&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"
       }[m]));
+    }
+
+    let __currentMissionNo = null;
+
+    function openMissionModal(no, text){
+      __currentMissionNo = no;
+      const titleEl = document.getElementById("missionModalTitle");
+      const textEl = document.getElementById("missionModalText");
+      titleEl.textContent = `미션 ${no}`;
+      textEl.textContent = text;
+
+      // set toggle button label based on checked
+      const toggleBtn = document.getElementById("missionToggleBtn");
+      const checked = loadChecked(SELECTED_TEAM);
+      toggleBtn.textContent = checked.has(no) ? "체크 해제" : "진행 체크";
+
+      const modal = document.getElementById("missionModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+
+      // close when clicking backdrop
+      modal.addEventListener("click", __modalBackdropCloseOnce);
+      // close on ESC
+      document.addEventListener("keydown", __modalEscCloseOnce);
+    }
+
+    function __modalBackdropCloseOnce(e){
+      if(e.target && e.target.id === "missionModal") closeMissionModal();
+    }
+
+    function __modalEscCloseOnce(e){
+      if(e.key === "Escape") closeMissionModal();
+    }
+
+    function closeMissionModal(){
+      const modal = document.getElementById("missionModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+      modal.removeEventListener("click", __modalBackdropCloseOnce);
+      document.removeEventListener("keydown", __modalEscCloseOnce);
+      __currentMissionNo = null;
+    }
+
+    function toggleMissionChecked(){
+      if(!SELECTED_TEAM || !__currentMissionNo) return;
+      const checked = loadChecked(SELECTED_TEAM);
+      if(checked.has(__currentMissionNo)) checked.delete(__currentMissionNo);
+      else checked.add(__currentMissionNo);
+      saveChecked(SELECTED_TEAM, checked);
+
+      // update button label
+      const toggleBtn = document.getElementById("missionToggleBtn");
+      toggleBtn.textContent = checked.has(__currentMissionNo) ? "체크 해제" : "진행 체크";
+
+      // rerender mission buttons to reflect checked badge
+      renderTeamView();
     }
 
     socket.on("state", render);
