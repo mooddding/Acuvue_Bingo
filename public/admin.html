@@ -119,9 +119,7 @@
     // 아이템 정의(프론트 표시/입력요건)
     const ITEM_UI = {
       SHUFFLE_ATTACK: { name:"빙고판 셔플", needPos:false, hint:"대상 조의 빙고판이 섞입니다." },
-      DISABLE_CELL:   { name:"상대 칸 무력화", needPos:true,  hint:"대상 조의 선택한 칸이 무력화됩니다." },
-      INSTANT_CLEAR:  { name:"원하는 칸 즉시 완료", needPos:true, hint:"대상 조의 선택한 칸이 즉시 완료 처리됩니다." },
-      REVEAL_POS:     { name:"유리한 위치 보기", needPos:false, hint:"대상 조 기준 추천 칸 번호가 이벤트로 표시됩니다." },
+      INSTANT_CLEAR:  { name:"원하는 칸 즉시 완료", needPos:true,  hint:"대상 조의 선택한 칸이 즉시 완료 처리됩니다." },
     };
 
     let LAST_ADMIN_STATE = null;
@@ -219,7 +217,7 @@
       boards.innerHTML = "";
 
       for(const [team, t] of Object.entries(state.admin.teams || {})){
-        const inv = (t.items || []);
+        const inv = (t.items || []).filter(id => ITEM_UI[id]);
         const invButtons = inv.map(itemId =>
           `<button class="btn item" onclick="openItem(${team}, '${itemId}')">아이템 사용(${escapeHtml(itemName(itemId))})</button>`
         ).join("");

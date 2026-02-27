@@ -440,3 +440,77 @@ table.tight th, table.tight td{ padding: 10px 10px; }
 
   .title-locked .kicker-plain{ margin-left: 10px; font-size: 11px; }
 }
+
+/* =========================
+   Mission Modal (Board)
+========================= */
+.modal-desc{
+  margin-top: 10px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  background: rgba(2,8,23,0.04);
+  border: 1px solid rgba(2,8,23,0.10);
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(15,23,42,0.85);
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+
+.modal-media{
+  margin-top: 12px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(2,8,23,0.10);
+  background: rgba(255,255,255,0.85);
+}
+
+.modal-media img{
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* =========================
+   Board Page: Mission Modal Overlay (center + readability)
+========================= */
+/* mission modal container is #missionModal in board.html */
+.board-page #missionModal.modal{
+  position: fixed !important;
+  inset: 0 !important;
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 18px !important;
+  z-index: 9999 !important;
+
+  /* ✅ 너무 어둡지 않게 살짝만 덮어서 가독성 확보 */
+  background: rgba(2,8,23,0.14) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+.board-page #missionModal.modal.open{ display: flex !important; }
+
+/* modal card: 항상 화면 가운데 + 길면 내부 스크롤 */
+.board-page #missionModal .modal-card{
+  width: min(560px, calc(100vw - 36px)) !important;
+  max-height: calc(100vh - 72px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+}
+
+.board-page #missionModal .modal-body{
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.board-page #missionModal .modal-actions{
+  flex: 0 0 auto !important;
+}
+
+/* very small phones */
+@media (max-width: 420px){
+  .board-page #missionModal.modal{ padding: 12px !important; }
+}

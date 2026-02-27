@@ -18,9 +18,7 @@ const COMMON_MISSIONS = ["M1","M2","M3","M4","M5","M6","M7","M8"];
 // 2 공격 + 2 버프 (한글명)
 const ITEM_DEFS = {
   SHUFFLE_ATTACK: { name: "빙고판 셔플", kind: "공격" },
-  DISABLE_CELL:   { name: "상대 칸 무력화", kind: "공격" },
   INSTANT_CLEAR:  { name: "원하는 칸 즉시 완료", kind: "버프" },
-  REVEAL_POS:     { name: "유리한 위치 보기", kind: "버프" },
 };
 const ITEM_POOL = Object.keys(ITEM_DEFS);
 
@@ -101,10 +99,23 @@ function buildUserState(state){
   const teams = {};
   for(let t=1;t<=TEAM_COUNT;t++){
     const tm = state.teams[t];
+    // mission completion map (do NOT expose positions)
+    const missionDone = {};
+    for (let i = 0; i < 9; i++) {
+      const m = tm.board[i];
+      if (tm.cleared[i]) missionDone[m] = true;
+    }
+    // reveal mission id only for cleared/disabled cells (do not leak remaining positions)
+    const revealed = Array(9).fill(null);
+    for (let i = 0; i < 9; i++) {
+      if (tm.cleared[i] || tm.disabled[i]) revealed[i] = tm.board[i];
+    }
     teams[t] = {
       cleared: tm.cleared,
       disabled: tm.disabled,
       awards: tm.awards,
+      missionDone,
+      revealed,
       bingoCount: countBingos(tm.cleared),
       clearedCount: tm.cleared.filter(Boolean).length
     };
@@ -144,7 +155,6 @@ const HISTORY_LIMIT = 60;
 const history = [];
 
 function deepClone(obj){
-  // Node 18+면 structuredClone 존재
   if (typeof structuredClone === "function") return structuredClone(obj);
   return JSON.parse(JSON.stringify(obj));
 }
@@ -156,19 +166,20 @@ function saveHistory(){
 function newGameState(){
   const state = {
     game: {
-    status: "WAITING",
-    timer: {
+      status: "WAITING",
+      timer: {
         running: false,
-        startedAt: null,     // ISO string
-        endedAt: null,       // ISO string
-        elapsedMs: 0         // 누적 경과(ms)
-    }},
+        startedAt: null,
+        endedAt: null,
+        elapsedMs: 0
+      }
+    },
     teams: {},
     events: []
   };
 
   for(let t=1;t<=TEAM_COUNT;t++){
-    const board = shuffle([...COMMON_MISSIONS, `H${t}`]); // ✅ H1..H9
+    const board = shuffle([...COMMON_MISSIONS, `H${t}`]);
     state.teams[t] = {
       board,
       cleared: Array(9).fill(false),
@@ -185,23 +196,13 @@ function newGameState(){
 let STATE = newGameState();
 
 // ===== routes =====
-// 기본 접속은 순위 페이지로
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "landing.html"));
 });
-// 유저 화면(기존)
 app.get("/user", (req, res) => res.sendFile(path.join(__dirname, "public", "user.html")));
-
-// 유저 Phase 1: 실시간 순위 전용
 app.get("/rank", (req, res) => res.sendFile(path.join(__dirname, "public", "rank.html")));
-
-// 유저 Phase 2: 빙고판(조 선택 + 미션 리스트/빙고판)
 app.get("/board", (req, res) => res.sendFile(path.join(__dirname, "public", "board.html")));
-
-// 관리자
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
-
-// (옵션) 기존 링크 호환: /rank.html, /board.html 은 express.static("public")로도 접근 가능
 
 app.get("/api/admin/state", (req, res) => res.json(buildAdminState(STATE)));
 
@@ -216,18 +217,15 @@ app.post("/api/admin/set-status", (req,res)=>{
   const timer = STATE.game.timer;
 
   if(status === "RUNNING"){
-    // ✅ 시작 버튼: 타이머가 멈춰있으면 시작(재시작은 아님)
     if(!timer.running){
       timer.running = true;
       timer.startedAt = nowIso();
       timer.endedAt = null;
-      // elapsedMs는 유지(혹시 중간 재시작 같은 케이스를 위해)
     }
     STATE.game.status = "RUNNING";
     pushEvent(STATE, `상태 변경: RUNNING`);
 
   } else if(status === "ENDED"){
-    // ✅ 종료 버튼 1번: 멈추고 종료 시각 기록
     if(timer.running){
       const now = Date.now();
       const started = Date.parse(timer.startedAt);
@@ -242,19 +240,16 @@ app.post("/api/admin/set-status", (req,res)=>{
       pushEvent(STATE, `상태 변경: ENDED (타이머 정지)`);
 
     } else {
-      // ✅ 종료 버튼 2번: 타이머만 리셋(게임 리셋 아님)
       timer.running = false;
       timer.startedAt = null;
       timer.endedAt = null;
       timer.elapsedMs = 0;
 
-      // 상태는 ENDED 유지(원하시면 WAITING으로 바꿔도 됨)
       STATE.game.status = "ENDED";
       pushEvent(STATE, `타이머 리셋(게임 유지)`);
     }
 
   } else if(status === "WAITING"){
-    // 대기: 상태만 변경(타이머는 건드리지 않음)
     STATE.game.status = "WAITING";
     pushEvent(STATE, `상태 변경: WAITING`);
   }
@@ -264,8 +259,6 @@ app.post("/api/admin/set-status", (req,res)=>{
   toastAll(`상태: ${STATE.game.status}`);
   res.json({ ok:true, message:`상태 변경: ${STATE.game.status}` });
 });
-
-// ✅ 공지 기능 제거됨
 
 app.post("/api/admin/toggle-clear", (req,res)=>{
   const { team, pos } = req.body || {};
@@ -286,7 +279,6 @@ app.post("/api/admin/toggle-clear", (req,res)=>{
   tm.cleared[p] = !tm.cleared[p];
   const mission = tm.board[p];
 
-  // 히든 완료 시 아이템 지급 + 칸에 표시
   if(tm.cleared[p] && /^H\d+$/.test(mission) && !tm.awards[p]){
     const itemId = ITEM_POOL[Math.floor(Math.random()*ITEM_POOL.length)];
     tm.awards[p] = itemId;
@@ -376,7 +368,6 @@ app.post("/api/admin/use-item", (req,res)=>{
     msg = `🔎 ${ft}조 → ${tt}조 : '${ITEM_DEFS[itemId].name}' → 추천 칸 ${bestPos+1}번`;
   }
 
-  // 아이템 소모
   from.items.splice(invIdx, 1);
 
   pushEvent(STATE, msg);
@@ -387,7 +378,6 @@ app.post("/api/admin/use-item", (req,res)=>{
   res.json({ ok:true, message: msg });
 });
 
-// ✅ 제대로 된 Undo: “직전 동작 전체”를 스냅샷으로 복원(이벤트/아이템 포함)
 app.post("/api/admin/undo", (req,res)=>{
   if(history.length === 0){
     return res.json({ ok:false, message:"되돌릴 내역이 없습니다." });
@@ -416,4 +406,3 @@ server.listen(PORT, ()=>{
   console.log(`http://localhost:${PORT}/board (user - board)`);
   console.log(`http://localhost:${PORT}/admin (admin)`);
 });
-
