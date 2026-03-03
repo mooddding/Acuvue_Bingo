@@ -22,6 +22,27 @@
       border-radius: 14px;
       font-weight: 1000;
     }
+    /* Hide home button while a modal is open (prevents confusion) */
+    body.modal-open.board-page .home-link{
+      display: none !important;
+    }
+
+    /* Floating close button (shows only while modal is open) */
+    .board-page .floating-close{
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 10002;
+      display: none;
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-weight: 1000;
+    }
+    body.modal-open.board-page .floating-close{ display: inline-block; }
+
+    @media (max-width: 640px){
+      .board-page .floating-close{ top: 10px; left: 10px; padding: 9px 10px; border-radius: 12px; }
+    }
     @media (max-width: 640px){
       .board-page .home-link{ top: 10px; left: 10px; }
       .board-page .home-link.btn{ padding: 9px 10px; border-radius: 12px; }
@@ -139,6 +160,7 @@
       background: rgba(255,255,255,0.78);
       box-shadow: 0 10px 25px rgba(2,8,23,0.06);
       transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      line-height: 1.1;
     }
 
     .board-page .mission-btn:hover{
@@ -184,6 +206,116 @@
       border: 1px solid rgba(255,255,255,0.70);
       box-shadow: 0 30px 80px rgba(0,0,0,0.25);
       overflow: hidden;
+    }
+
+    /* Image Zoom Viewer (for mission image) */
+    .board-page .img-viewer{
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 10050;
+      background: rgba(2,8,23,0.35);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .board-page .img-viewer.open{ display: flex; }
+
+    .board-page .img-viewer-card{
+      width: min(980px, calc(100vw - 32px));
+      max-height: calc(100vh - 72px);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid rgba(255,255,255,0.70);
+      box-shadow: 0 30px 90px rgba(0,0,0,0.30);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .board-page .img-viewer-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      background: rgba(2,8,23,0.04);
+      border-bottom: 1px solid rgba(2,8,23,0.08);
+    }
+    .board-page .img-viewer-title{
+      font-size: 13px;
+      font-weight: 1100;
+      color: rgba(15,23,42,0.82);
+      margin: 0;
+    }
+    .board-page .img-viewer-close{
+      border: 0;
+      background: rgba(2,8,23,0.06);
+      border: 1px solid rgba(2,8,23,0.12);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-weight: 1000;
+      cursor: pointer;
+    }
+
+    .board-page .img-viewer-body{
+      padding: 12px;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .board-page .img-viewer-body img{
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.85);
+    }
+
+    /* Mission modal media: prevent device-specific cropping */
+    .board-page #missionModalMedia{
+      margin-top: 12px;
+      border-radius: 14px;
+      overflow: auto;                 /* allow scroll if image is tall */
+      border: 1px solid rgba(2,8,23,0.10);
+      background: rgba(255,255,255,0.85);
+      max-height: 58vh;               /* keep inside modal */
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .board-page #missionModalMedia img{
+      display: block;
+      width: 100%;
+      height: auto;
+      max-width: 100%;
+      object-fit: contain;            /* never crop */
+      cursor: zoom-in;
+    }
+
+    .board-page .img-hint{
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 1000;
+      color: rgba(37,99,235,0.92);
+      background: rgba(37,99,235,0.08);
+      border: 1px solid rgba(37,99,235,0.18);
+      border-radius: 999px;
+      padding: 8px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    @media (max-width: 640px){
+      .board-page #missionModalMedia{ max-height: 50vh; }
+    }
+    @media (max-width: 420px){
+      .board-page #missionModalMedia{ max-height: 44vh; }
     }
 
     .board-page .modal-head{
@@ -247,6 +379,7 @@
 <body class="no-x board-page">
 
   <a class="btn ghost home-link" href="/" aria-label="홈으로 돌아가기">← 홈</a>
+  <button class="btn ghost floating-close" type="button" onclick="handleFloatingClose()" aria-label="팝업 닫기">✕ 닫기</button>
 
   <div class="hero">
     <div class="hero-row">
@@ -330,9 +463,23 @@
         <div class="modal-media" id="missionModalMedia" style="display:none;">
           <img id="missionModalImg" alt="미션 예시 이미지" />
         </div>
+        <div class="img-hint" id="missionModalImgHint" style="display:none;">🔍 이미지 탭하면 크게 볼 수 있어요</div>
       </div>
       <div class="modal-actions">
         <button class="btn primary" type="button" onclick="closeMissionModal()">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image viewer modal (tap mission image to zoom) -->
+  <div class="img-viewer" id="imgViewer" aria-hidden="true">
+    <div class="img-viewer-card" role="dialog" aria-modal="true" aria-labelledby="imgViewerTitle">
+      <div class="img-viewer-head">
+        <h3 class="img-viewer-title" id="imgViewerTitle">이미지 크게 보기</h3>
+        <button class="img-viewer-close" type="button" onclick="closeImgViewer()">닫기</button>
+      </div>
+      <div class="img-viewer-body">
+        <img id="imgViewerImg" alt="확대 이미지" />
       </div>
     </div>
   </div>
@@ -440,7 +587,7 @@
       // - 공통 title/desc는 hiddenMissionCommon에서 수정
       // - 조별 단서 이미지는 hiddenClueImgByTeam에서 경로만 바꾸면 됩니다 (public 기준 URL: "/images/xxx.png")
       const hiddenMissionCommon = {
-        title: "(히든 미션!!) 단서로 장소 추리하기!",
+        title: "(아이템 미션!!) 단서로 장소 추리하기!",
         desc: "아래 단서를 보고 어떤 장소인지 추리해 해당 장소에서 인증샷을 찍어 제출해 주세요! 🔍\n\n단, 5개의 단서 중 2개는 슬쩍 끼워 넣은(?) 거짓 단서입니다 😏 조원들의 집단지성을 발휘해 진실을 가려내 보세요!\n\n해당 미션 클리어 시 빙고게임에 유리한 아이템이 지급됩니다!",
         img: "" // 아래에서 팀별로 덮어씁니다
       };
@@ -473,33 +620,33 @@
       },
       {
         title: "확대한 이미지에 있는 장소 알아내기!",
-        desc: "아래 이미지를 보고 어떤 장소인지 알아내고 해당 장소에서 셀카 인증샷을 찍어 제출해 주세요! \n(힌트: 😋 )",
+        desc: "아래 이미지를 보고 어떤 장소인지 알아내고 해당 장소에서 단체 셀카 인증샷을 찍어 제출해 주세요! \n(힌트: 😋 )",
         img: "/미션3장소.png"
       },
       {
         title: "빨강(존존 컬러) + 파랑(아큐브 컬러)이 함께 들어간 것을 찾아주세요!",
         desc: "주변 사물/간판/소품 중 빨강+파랑이 동시에 들어간 대상을 찾아 사진으로 제출해 주세요.\n(힌트: 벽화마을을 산책해보세요🤫)",
-        img: "/미션4사진.jpeg"
+        img: "/미션4사진.jpeg" //사진 줄이기
       },
       {
         title: "오목대 앞에서 인간 제로 게임!",
-        desc: "무릎이 튼튼한? 5명 선발 후 MC가 말한 숫자 맞추면 통과!\n(오목대 앞에서 기다리는 OC팀 멤버를 찾아주세요👀)",
+        desc: "미션장소: 오목대\n무릎이 튼튼한? 5명 선발 후 MC가 말한 숫자 맞추면 통과!\n(오목대 앞에서 기다리는 OC팀 멤버를 찾아주세요👀)",
         img: ""
       },
       {
         title: "오목대 앞에서 초성 퀴즈 ㅇㅁㄷ ㅇㅇㅅ ㅊㅅ ㅋㅈ",
-        desc: "오목대 앞에서 주제(랜덤)를 선택해서 초성 퀴즈를 맞춰주세요!\n(오목대 앞에서 기다리는 OC팀 멤버를 찾아주세요👀)",
+        desc: "미션장소: 오목대\n주제(랜덤)를 선택해서 초성 퀴즈를 맞춰주세요!\n(오목대 앞에서 기다리는 OC팀 멤버를 찾아주세요👀)",
         img: ""
       },
       {
-        title: "숨은 복(福) 막새기와 찾기!",
-        desc: "한옥 기와 끝에 있는 복(福)자 막새기와를 찾아서 인증샷을 찍어 제출해 주세요!\n(힌트: 메인길보다 공방 골목 쪽을 잘살펴보세요🤫)",
+        title: "막새기와 찾기!",
+        desc: "한옥 기와 끝에 있는 막새기와를 찾아서 인증샷을 찍어 제출해 주세요!\n(힌트: 메인길보다 공방 골목 쪽을 잘살펴보세요🤫)",
         img: ""
       },
       {
         title: "한옥마을 내 간판으로 아큐브, 아큐브 직원 등등 관련된 단어 만들기!(글자 돌리기 허용)",
-        desc: "한옥마을 간판/문양에서 글자를 찾아 조합해 ‘아큐브와 연결되는 단어’를 만들고 증거 사진을 제출해 주세요.\n꼭 단어가 맞지 않아도 좋아요! 말이 되게 끔만 만들어주세요!\n(예시이미지: 윤해솔)",
-        img: "/미션8사진.jpeg"
+        desc: "한옥마을 간판/문양에서 글자를 찾아 조합해 ‘아큐브와 연결되는 단어’를 만들고 증거 사진을 제출해 주세요.\n꼭 단어가 맞지 않아도 좋아요! 말이 되게 끔만 창의력을 발휘해주세요!\n(예시이미지: 윤해솔)",
+        img: "/미션8사진.jpeg" // 사진 바꾸기
       },
       hiddenMission
     ];
@@ -575,12 +722,23 @@
       }[m]));
     }
 
+    function syncModalOpenClass(){
+      const missionModal = document.getElementById("missionModal");
+      const imgViewer = document.getElementById("imgViewer");
+      const anyOpen =
+        (missionModal && missionModal.classList.contains("open")) ||
+        (imgViewer && imgViewer.classList.contains("open"));
+
+      document.body.classList.toggle("modal-open", !!anyOpen);
+    }
+
     function openMissionModal(no, mission, done){
       const titleEl = document.getElementById("missionModalTitle");
       const titleTextEl = document.getElementById("missionModalTitleText");
       const descEl = document.getElementById("missionModalDesc");
       const mediaWrap = document.getElementById("missionModalMedia");
       const imgEl = document.getElementById("missionModalImg");
+      const imgHint = document.getElementById("missionModalImgHint");
 
       // 상단 타이틀(완료/미완료)
       titleEl.textContent = done ? `미션 ${no} (완료)` : `미션 ${no} (미완료)`;
@@ -596,20 +754,77 @@
       if(src){
         imgEl.src = src;
         mediaWrap.style.display = "block";
+        imgEl.onclick = ()=> openImgViewer(src, `미션 ${no} 이미지`);
+        imgHint.style.display = "inline-flex";
       } else {
         imgEl.removeAttribute("src");
         mediaWrap.style.display = "none";
+        imgEl.onclick = null;
+        imgHint.style.display = "none";
       }
 
       const modal = document.getElementById("missionModal");
       modal.classList.add("open");
       modal.setAttribute("aria-hidden", "false");
+      syncModalOpenClass();
 
       // close when clicking backdrop
       modal.addEventListener("click", __modalBackdropCloseOnce);
       // close on ESC
       document.addEventListener("keydown", __modalEscCloseOnce);
     }
+    function handleFloatingClose(){
+      const missionModal = document.getElementById("missionModal");
+      const imgViewer = document.getElementById("imgViewer");
+
+      if(imgViewer && imgViewer.classList.contains("open")){
+        closeImgViewer();
+        return;
+      }
+      if(missionModal && missionModal.classList.contains("open")){
+        closeMissionModal();
+        return;
+      }
+      syncModalOpenClass();
+    }
+
+    function openImgViewer(src, title){
+      const viewer = document.getElementById("imgViewer");
+      const img = document.getElementById("imgViewerImg");
+      const t = document.getElementById("imgViewerTitle");
+
+      img.src = src;
+      t.textContent = title || "이미지 크게 보기";
+
+      viewer.classList.add("open");
+      viewer.setAttribute("aria-hidden", "false");
+      syncModalOpenClass();
+
+      // close when clicking backdrop
+      viewer.addEventListener("click", __imgBackdropCloseOnce);
+      // close on ESC
+      document.addEventListener("keydown", __imgEscCloseOnce);
+    }
+
+    function __imgBackdropCloseOnce(e){
+      if(e.target && e.target.id === "imgViewer") closeImgViewer();
+    }
+
+    function __imgEscCloseOnce(e){
+      if(e.key === "Escape") closeImgViewer();
+    }
+
+    function closeImgViewer(){
+      const viewer = document.getElementById("imgViewer");
+      const img = document.getElementById("imgViewerImg");
+      viewer.classList.remove("open");
+      viewer.setAttribute("aria-hidden", "true");
+      syncModalOpenClass();
+      viewer.removeEventListener("click", __imgBackdropCloseOnce);
+      document.removeEventListener("keydown", __imgEscCloseOnce);
+      img.removeAttribute("src");
+    }
+
 
     function __modalBackdropCloseOnce(e){
       if(e.target && e.target.id === "missionModal") closeMissionModal();
@@ -623,6 +838,7 @@
       const modal = document.getElementById("missionModal");
       modal.classList.remove("open");
       modal.setAttribute("aria-hidden", "true");
+      syncModalOpenClass();
       modal.removeEventListener("click", __modalBackdropCloseOnce);
       document.removeEventListener("keydown", __modalEscCloseOnce);
     }

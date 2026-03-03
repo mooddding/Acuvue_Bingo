@@ -460,10 +460,12 @@ table.tight th, table.tight td{ padding: 10px 10px; }
  .modal-media{
   margin-top: 12px;
   border-radius: 14px;
-  overflow: hidden;
+  overflow: auto;                 /* ✅ hidden → auto : 기기별로 잘려보이는 현상 방지(스크롤 허용) */
   border: 1px solid rgba(2,8,23,0.10);
   background: rgba(255,255,255,0.85);
   height: auto !important;
+  max-height: 64vh;               /* ✅ 너무 커지면 컨테이너에서 스크롤 */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ✅ 이미지 잘림 방지: contain + max-height */
@@ -471,8 +473,15 @@ table.tight th, table.tight td{ padding: 10px 10px; }
   display: block;
   width: 100%;
   height: auto !important;
-  max-height: 58vh;
-  object-fit: contain;
+  max-width: 100%;
+  object-fit: contain;            /* ✅ 이미지 자체는 절대 잘리지 않게 */
+}
+
+@media (max-width: 640px){
+  .modal-media{ max-height: 52vh; }
+}
+@media (max-width: 420px){
+  .modal-media{ max-height: 46vh; }
 }
 
 /* =========================
