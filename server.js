@@ -72,17 +72,12 @@ function computeRanking(state){
     });
   }
   list.sort((a,b)=>{
-    const a3 = a.threeBingoAt ? 1 : 0;
-    const b3 = b.threeBingoAt ? 1 : 0;
-    if(a3 !== b3) return b3 - a3;
-
-    if(a3 === 1 && b3 === 1){
-      if(a.threeBingoAt < b.threeBingoAt) return -1;
-      if(a.threeBingoAt > b.threeBingoAt) return 1;
-    }
-
+    // ✅ 순위는 언제나 '현재 상태' 기준으로만 계산 (아이템으로 언제든 변동 가능)
+    // 1) 빙고 수(내림차순)
     if(a.bingoCount !== b.bingoCount) return b.bingoCount - a.bingoCount;
+    // 2) 미션 완료 수(내림차순)
     if(a.clearedCount !== b.clearedCount) return b.clearedCount - a.clearedCount;
+    // 3) 조 번호(오름차순)
     return a.team - b.team;
   });
 
